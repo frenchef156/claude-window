@@ -6,6 +6,8 @@ A tiny Neovim plugin for quickly showing and managing a Claude code terminal win
 
 ###### This Neovim Claude code plugin was developed using claude code running in a Neovim terminal. Recursion is fun.
 
+https://github.com/user-attachments/assets/b9eed663-ce68-4dce-9e15-8c5619335542
+
 ### Features
 - **Single command**: `:ClaudeTerminal [split_right|split_left|split_bottom|split_top|floating]`
 - **Smart focus**: Jumps to an existing Claude terminal window if already open
