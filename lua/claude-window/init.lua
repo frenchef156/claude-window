@@ -1,5 +1,64 @@
 local M = {}
 
+local function setup_input_keymap(terminal_buf)
+	local job_id = vim.b[terminal_buf].terminal_job_id
+	if not job_id then
+		return
+	end
+
+	vim.keymap.set("n", "<leader>i", function()
+		local input_buf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_set_option_value("buftype", "nofile", { buf = input_buf })
+		vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = input_buf })
+
+		local screen_width = vim.api.nvim_get_option("columns")
+		local screen_height = vim.api.nvim_get_option("lines")
+		local win_width = math.floor(screen_width * 0.6)
+		local win_height = math.floor(screen_height * 0.2)
+		local row = math.floor(screen_height * 0.75)
+		local col = math.floor((screen_width - win_width) / 2)
+
+		local input_win = vim.api.nvim_open_win(input_buf, true, {
+			relative = "editor",
+			width = win_width,
+			height = win_height,
+			row = row,
+			col = col,
+			border = "single",
+			title = "Claude Input (Enter: send, S-Enter: newline, Esc: cancel)",
+			title_pos = "left",
+		})
+
+		vim.cmd("startinsert")
+
+		vim.keymap.set("i", "<S-CR>", function()
+			vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-o>o", true, false, true), "n", false)
+		end, { buffer = input_buf })
+
+		vim.keymap.set("i", "<Esc>", function()
+			vim.cmd("stopinsert")
+			if vim.api.nvim_win_is_valid(input_win) then
+				vim.api.nvim_win_close(input_win, true)
+			end
+		end, { buffer = input_buf })
+
+		vim.keymap.set("i", "<CR>", function()
+			vim.cmd("stopinsert")
+			local lines = vim.api.nvim_buf_get_lines(input_buf, 0, -1, false)
+			local text = table.concat(lines, "\n")
+			vim.api.nvim_chan_send(job_id, text)
+			-- Delay so \r arrives as a separate single-byte read on stdin,
+			-- which Ink interprets as an Enter keypress (submit) rather than pasted text
+			vim.defer_fn(function()
+				vim.api.nvim_chan_send(job_id, "\r")
+			end, 100)
+			if vim.api.nvim_win_is_valid(input_win) then
+				vim.api.nvim_win_close(input_win, true)
+			end
+		end, { buffer = input_buf })
+	end, { buffer = terminal_buf, desc = "Open Claude input window" })
+end
+
 function M.setup()
 	local claude_command_name = "ClaudeTerminal"
 	local claude_split_right = "split_right"
@@ -62,6 +121,7 @@ function M.setup()
 					vim.api.nvim_set_current_win(win)
 					vim.cmd("terminal claude")
 					vim.cmd("file " .. buf_name)
+					setup_input_keymap(vim.api.nvim_get_current_buf())
 				end
 			else
 				-- Handle split types
@@ -81,6 +141,7 @@ function M.setup()
 				else
 					vim.cmd("terminal claude")
 					vim.cmd("file " .. buf_name)
+					setup_input_keymap(vim.api.nvim_get_current_buf())
 				end
 			end
 		end,
