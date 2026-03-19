@@ -6,6 +6,20 @@ local function setup_input_keymap(terminal_buf)
 		return
 	end
 
+	vim.api.nvim_create_autocmd("TermEnter", {
+		buffer = terminal_buf,
+		callback = function()
+			local win = vim.api.nvim_get_current_win()
+			local width = vim.api.nvim_win_get_width(win)
+			vim.api.nvim_win_set_width(win, width + 1)
+			vim.defer_fn(function()
+				if vim.api.nvim_win_is_valid(win) then
+					vim.api.nvim_win_set_width(win, width)
+				end
+			end, 10)
+		end,
+	})
+
 	vim.keymap.set("n", "<leader>i", function()
 		local input_buf = vim.api.nvim_create_buf(false, true)
 		vim.api.nvim_set_option_value("buftype", "nofile", { buf = input_buf })
